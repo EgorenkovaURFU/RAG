@@ -44,6 +44,7 @@ def create_init_files():
     src_dirs = [
         "src",
         "src/parsers",
+        "src/chunking",
         "src/indexing",
         "src/search",
         "src/llm",
