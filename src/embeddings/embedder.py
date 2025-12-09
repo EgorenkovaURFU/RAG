@@ -1,5 +1,3 @@
-A = 1
-
 from sentence_transformers import SentenceTransformer
 import torch
 from loguru import logger

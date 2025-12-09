@@ -1,6 +1,4 @@
-from src.embeddings.embedder import A, Embedder
-
-print(A)
+from src.embeddings.embedder import Embedder
 from src.vector_store.chroma_store import ChromaStore
 
 
