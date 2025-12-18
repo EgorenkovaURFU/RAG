@@ -3,6 +3,7 @@ from pathlib import Path
 from loguru import logger
 
 
+
 def parse_docx(file_path: str) -> list:
 
     """
@@ -29,10 +30,13 @@ def parse_docx(file_path: str) -> list:
         logger.warning(f'DOCX is empty: {file_path}')
         return []
     
-    return [{
-        'text': '\n'.join(paregraphs),
-        'page': None,
-        'path': str(file_path),
-        'type': 'docx'
-    }]
+    return [{'text': paregraphs,
+            'path': str(file_path),
+            'file_type': 'docx',
+
+            'page': None,
+            'sheet': None,
+            'section': heading_or_paragraph_id,
+
+            'page_type': None}]
 

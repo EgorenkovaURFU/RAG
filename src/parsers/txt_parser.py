@@ -1,5 +1,6 @@
 from pathlib import Path
 from loguru import logger
+from src.parsers.page_classifier import detect_page_type
 
 
 def parse_txt(file_path: str) -> list:

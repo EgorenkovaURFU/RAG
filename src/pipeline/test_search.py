@@ -1,5 +1,5 @@
 from src.embeddings.embedder import Embedder
-from src.vector_store.chroma_store import ChromaStore
+from legacy.chroma_store import ChromaStore
 
 
 query = 'Как заменить фильтр на установке?'

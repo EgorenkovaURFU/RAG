@@ -4,7 +4,7 @@ from loguru import logger
 
 
 #TODO сделать фильтацию  по подпапкам и по дате изменения
-ALLOWED_EXTENSIONS = {'.pdf', } # '.docx', '.xlsx', '.txt'
+ALLOWED_EXTENSIONS = {'.docx', '.xlsx', '.txt'} # '.pdf', 
 
 
 def scan_raw_data(root_dir: str = 'data/raw') -> list:

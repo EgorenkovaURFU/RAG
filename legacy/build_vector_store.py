@@ -3,17 +3,18 @@ from src.parsers.parse_manager import parse_documant
 from src.chunking.chunker import progress_document
 
 from src.embeddings.embedder import Embedder
-from src.vector_store.chroma_store import ChromaStore
+from legacy.chroma_store import ChromaStore
 
 from loguru import logger
 import uuid
 
+BATCH_SIZE = 1000
 
 
 def build_vector_store():
     logger.info('Start ')
 
-    files = scan_raw_data(root_dir='rag/data/raw')
+    files = scan_raw_data(root_dir='data/raw/1c-data')
 
     embedder = Embedder()
     store = ChromaStore()
@@ -38,7 +39,7 @@ def build_vector_store():
 
             all_texts.append(text)
             all_matadata.append(metadata)
-            all_ids.append(str(uuid.uuid4))
+            all_ids.append(str(uuid.uuid4()))
 
     logger.info('Generating embeddings...')
     all_embeddings = embedder.embed(all_texts)
@@ -52,4 +53,8 @@ def build_vector_store():
 
     logger.info('Vector database is installed successfully')
 
-    
+
+
+if __name__ == "__main__":
+    build_vector_store()
+

@@ -1,6 +1,7 @@
 import pandas as pd
 from pathlib import Path
 from loguru import logger
+from src.parsers.page_classifier import detect_page_type
 
 
 def parse_excel(file_path: str) -> list:
@@ -34,10 +35,15 @@ def parse_excel(file_path: str) -> list:
             if text.strip():
                 results.append({
                     'text': text,
-                    'page': sheet,
                     'path': str(file_path),
-                    'type': 'xlsx'
-                })
+                    'file_type': 'xlsx',
+
+                    'page': None,
+                    'sheet': sheet,
+                    'section': None,
+
+                    'page_type': None}
+                    )
     
     return results
 

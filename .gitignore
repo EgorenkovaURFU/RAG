@@ -1,3 +1,6 @@
 venv
 data
+rag
 models
+__pycache__
+

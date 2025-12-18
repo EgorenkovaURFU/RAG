@@ -1,6 +1,7 @@
 import pdfplumber
 from loguru import logger
 from pathlib import Path
+from src.parsers.page_classifier import detect_page_type
 
 
 def parse_pdf(file_path: str) -> list:
@@ -30,10 +31,15 @@ def parse_pdf(file_path: str) -> list:
 
                 results.append({
                     'text': text,
-                    'page': page_num,
                     'path': str(file_path),
-                    'type': 'pdf'
-                })
+                    'file_type': 'pdf',
+
+                    'page': page_num,
+                    'sheet': None,
+                    'section': None,
+
+                    'page_type': detect_page_type(text)}
+                    )
     except Exception as ex:
         logger.info(f'Error during parsing PDF {file_path}: {ex}')
 
