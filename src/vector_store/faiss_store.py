@@ -84,7 +84,7 @@ class FaissStore:
             meta = self.metadatas[idx]
 
             results.append({
-                "id": meta["id"],          # 🔑 ВСЕГДА id
+                "id": meta["chunk_id"],          # 🔑 ВСЕГДА id
                 "score": float(score),
                 "norm_score": 0.0,         # заполним позже
                 "source": "faiss",

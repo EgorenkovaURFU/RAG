@@ -7,11 +7,12 @@ from src.parsers.page_classifier import detect_page_type
 def parse_pdf(file_path: str) -> list:
 
     """
-    Docstring for parse_pdf
-    
+    Role: Extracting information from a PDF document.
+    Functionality: Returns text from a page and metadata (path, file_type, page, sheet, section, page_type)
+
     :param file_path: path to PDF-file
     :type file_path: str
-    :return: List of Dicts with keys: 'text', 'page', 'path', 'type'
+    :return: List of Dicts with keys: 'text', 'file_type', 'page', 'sheet', 'section', 'page_type'
     :rtype: list
     """
 

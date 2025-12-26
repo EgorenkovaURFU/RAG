@@ -7,11 +7,12 @@ from src.parsers.page_classifier import detect_page_type
 def parse_excel(file_path: str) -> list:
 
     """
-    Docstring for parse_excel
-    
-    :param file_path: Description
+    Role: Extracting text from XLS/XLSX.
+    Functionality: Returns text from cells and metadata (path, file_type, page, sheet, section, page_type)
+
+    :param file_path: Path to file
     :type file_path: str
-    :return: Description
+    :return: Text and metadata
     :rtype: list
     """
 

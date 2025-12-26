@@ -1,6 +1,10 @@
 from collections import defaultdict
 from src.search.normalize import normalize_results
 from loguru import logger
+from config.config import Config
+
+
+config = Config()
 
 
 def hybrid_search(
@@ -8,9 +12,9 @@ def hybrid_search(
     query_embedding,
     faiss_store,
     bm25_store,
-    top_k: int = 5,
-    alpha: float = 0.6,
-    debug: bool = True
+    top_k: int = config.retrieval['top_k'],
+    alpha: float = config.retrieval['hybrid_alpha'],
+    debug: bool = config.retrieval['debug']
 ):
     faiss_results = faiss_store.search(
         query_embedding=query_embedding,

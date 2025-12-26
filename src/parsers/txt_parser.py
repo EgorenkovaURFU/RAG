@@ -12,10 +12,14 @@ def parse_txt(file_path: str) -> list:
     except:
         text = file_path.read_text(encoding='utf-8', errors='ignore')
 
-    return [{
+    return {
         'text': text,
-        'page': None,
         'path': str(file_path),
-        'type': 'txt'
-    }]
+        'file_type': 'txt',
+
+        'page': None,
+        'sheet': None,
+        'section': None,
+
+        'page_type': None}
 

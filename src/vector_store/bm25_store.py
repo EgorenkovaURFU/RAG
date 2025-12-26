@@ -2,6 +2,11 @@ import re
 import pickle
 from rank_bm25 import BM25Okapi
 from loguru import logger
+from config.config import Config
+
+
+config = Config()
+
 
 STOPWORDS = {
     "и", "в", "на", "для", "по", "с", "к", "от", "из",
@@ -21,6 +26,9 @@ class BM25Store:
         logger.info("Creating BM25 store")
         self.documents = []   # [{text, metadata}]
         self.bm25 = None
+
+    def iter_documents(self):
+        return iter(self.documents)
 
     def add(self, texts: list[str], metadatas: list[dict]):
         assert len(texts) == len(metadatas)
@@ -59,7 +67,7 @@ class BM25Store:
             doc = self.documents[idx]
 
             results.append({
-                "id": doc["metadata"]["id"],   # 🔑 тот же id
+                "id": doc["metadata"]["chunk_id"],
                 "score": float(score),
                 "norm_score": 0.0,
                 "source": "bm25",
@@ -68,12 +76,12 @@ class BM25Store:
 
         return results
 
-    def save(self, path="data/bm25_index.pkl"):
+    def save(self, path=config.paths["bm25_index"]):
         with open(path, "wb") as f:
             pickle.dump(self.documents, f)
         logger.success(f"BM25 saved to {path}")
 
-    def load(self, path="data/bm25_index.pkl"):
+    def load(self, path=config.paths["bm25_index"]):
         with open(path, "rb") as f:
             self.documents = pickle.load(f)
 

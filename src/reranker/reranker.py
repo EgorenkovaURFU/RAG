@@ -6,7 +6,7 @@ class Reranker:
     def __init__(self, model_name='cross-encoder/ms-marco-MiniLM-L6-v2'):
         self.model = CrossEncoder(model_name)
 
-    def rerank(self, query: str, docs: list, top_k: int = 3):
+    def rerank(self, query: str, results: list[dict], top_k: int = 3) -> list[dict]:
         """
         Return top_k relevant documents 
         
@@ -18,14 +18,22 @@ class Reranker:
         :type top_k: int
         """
 
-        if not docs:
+        if not results:
             return []
         
-        pairs = [(query, d) for d in docs]
+        texts = [r["text"] for r in results]
+        pairs = [(query, t) for t in texts]
 
         scores = self.model.predict(pairs)
 
-        ranked = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
+        for r, s in zip(results, scores):
+            r["rerank_score"] = float(s)
 
-        return [doc for doc, score in ranked[:top_k]]
+        ranked = sorted(
+            results,
+            key=lambda x: x["rerank_score"],
+            reverse=True
+        )
+
+        return ranked[:top_k]
     

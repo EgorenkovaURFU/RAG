@@ -1,0 +1,35 @@
+paths:
+  data_dir: data/raw/1c-data
+  faiss_dir: data/faiss
+  bm25_index: data/bm25_index.pkl
+  path_registry: data/doc_registry.json
+
+retrieval:
+  top_k: 5
+  hybrid_alpha: 0.3
+  debug: True
+  faiss_multiplier: 2
+  bm25_multiplier: 2
+
+chunking:
+  chunk_size: 500
+  chunk_overlap: 100
+embeddings:
+  model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+  dim: 384
+
+llm:
+  model: bambucha/saiga-llama3
+  max_context_chars: 10000
+  max_chars: 10000
+
+prompt:
+  system: |
+    Ты — ассистент, который отвечает строго на основе предоставленного контекста.
+    Если в контексте есть частичная информация,
+    сформулируй максимально полный ответ,
+    основываясь ТОЛЬКО на предоставленных данных.
+    Если данных недостаточно для полного ответа —
+    опиши то, что известно. Предуперждай, что лучше прочитать первоисточник и дай 
+    ссылку на ситочник.
+

@@ -4,16 +4,26 @@ from loguru import logger
 
 
 #TODO сделать фильтацию  по подпапкам и по дате изменения
-ALLOWED_EXTENSIONS = {'.docx', '.xlsx', '.txt'} # '.pdf', 
+ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.xlsx', '.txt'} # , 
 
 
 def scan_raw_data(root_dir: str = 'data/raw') -> list:
     """
-    Docstring for scan_raw_data
+    Role:
+        File search on disk, filtering by extension.
+
+    Functionality:
+        * Recursive directory traversal
+        * Exceptions (temp, ~$, .git, etc.)
+        * Returning a list of files with paths
+
+    Does not:
+        * Parsing
+        * Reading contents
     
-    :param root_dir: Description
+    :param root_dir: Path to dir
     :type root_dir: str
-    :return: Description
+    :return: List of files with paths
     :rtype: list
     """
 

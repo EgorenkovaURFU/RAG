@@ -12,11 +12,15 @@ from src.reranker.reranker import Reranker
 from src.llm.postprocessing import postprocess_answer
 import os
 from collections import defaultdict
+from config.config import Config
+from src.search.expand_bm25_context import expand_bm25_context
+from src.search.merge_expanded_blocks import merge_expanded_blocks
+from src.search.faiss_on_expanded_blocks import faiss_select_from_blocks
 
 
-MODEL = "bambucha/saiga-llama3"
-TOP_K=5
-MAX_CONTEXT_CHARS=4000
+config = Config()
+
+
 OLLAMA_EXE_CANDIDATES = [
     r"C:\Users\tatya\AppData\Local\Programs\Ollama\Ollama.exe",
     r"C:\Program Files\Ollama\Ollama.exe",
@@ -42,7 +46,7 @@ def detect_ollama_executable() -> str:
         'ollama.exe was not found. Install Ollama and add to PATH or write the path into OLLAMA_EXE_CANDIDATES'
     )
 
-def smart_truncate(text: str, max_chars: int = 1500) -> str:
+def smart_truncate(text: str, max_chars: int = config.llm['max_chars']) -> str:
     """
     Cut texts at sentence/line boundaries without cutting it in the middle.
     Return safe, abbreviated text (with a trailing "..." if truncated).
@@ -89,23 +93,12 @@ def build_prompt_str(context_texts: List[str], question: str) -> str:
     :rtype: str
     """
 
-    header = (
-        'Ты - ассистент, который отвечает только на основе предоставленного контекста.\n'
-        'Если информации недостаточно, коротко напиши: \'недостаточно данных\' и объясни причину, если это возможно.\n'
-        'Не придумывай фактов.\n\n'
-    )
+    header = config.prompt["system"]
 
     context_combined = "\n\n---\n\n".join(context_texts)
 
 
-
-    # if len(context_combined) > MAX_CONTEXT_CHARS:
-    #     context_combined = context_combined[:MAX_CONTEXT_CHARS]
-    #     last_space = context_combined.rfind(' ')
-    #     if last_space > 0:
-    #         context_combined = context_combined[:last_space] + '...'
-
-    context_combined = smart_truncate(text=context_combined, max_chars = 1500)
+    context_combined = smart_truncate(text=context_combined, max_chars = config.llm['max_chars'])
         
     prompt = (
         header +
@@ -246,9 +239,39 @@ def run_ollama_via_subprocess(ollama_exe: str, model: str, prompt: str) -> str:
     return out
 
 
+def format_block_for_llm(block: dict) -> str:
+    meta = block.get("metadata", {})
+    text = block["text"]
+
+    title = "Процедура из документа"
+    if "промыв" in text.lower():
+        title = "Процедура промывки заправочного бачка"
+
+    header = []
+    header.append(f"Документ: {meta.get('path', 'неизвестно')}")
+    if meta.get("page") is not None:
+        header.append(f"Страница: {meta['page']}")
+
+    header.append("")  # пустая строка
+    header.append(title + ":")
+    header.append("")
+
+    # 🔹 пытаемся превратить строки в шаги
+    lines = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        # убираем мусор вроде "4 1"
+        line = line.lstrip("0123456789 .")
+        lines.append(f"- {line}")
+
+    return "\n".join(header + lines)
+
+
 class RAGPipeline:
 
-    def __init__(self, model: str = MODEL, top_k: int = TOP_K):
+    def __init__(self, model: str = config.llm['model'], top_k: int = config.retrieval['top_k']):
         self.embedder = Embedder()
         self.faiss_store = FaissStore(dim=384)
         self.bm25_store = BM25Store().load()
@@ -271,103 +294,90 @@ class RAGPipeline:
         logger.info(f'RAGPipeline is inited. model={self.model} top_k={self.top_k}, ollama_client={self.ollama_client_available}, ollama_exe={self.ollama_exe}')
 
     def retrieve(self, query: str):
-
+        # 1. Embed query
         q_emb = self.embedder.embed(query)[0]
 
-        results = hybrid_search(
-            query=query,
+        # 2. BM25 поиск для якорей
+        bm25_hits = self.bm25_store.search(query, top_k=self.top_k * 4)
+        if not bm25_hits:
+            return [], []
+
+        # 3. Расширяем контекст
+        expanded_blocks = expand_bm25_context(
+            bm25_hits=bm25_hits,
+            all_chunks=self.bm25_store.documents,
+            window_before=2,
+            window_after=4)
+
+        if not expanded_blocks:
+            return [], []
+
+        # 4. Объединяем соседние смысловые блоки
+        merged_blocks = merge_expanded_blocks(expanded_blocks)
+
+        # 5. Получаем эмбеддинги блоков
+        block_texts = [b["text"] for b in merged_blocks]
+        block_embeddings = self.embedder.embed(block_texts)
+
+        # 6. FAISS отбор топ-K
+        top_blocks = faiss_select_from_blocks(
             query_embedding=q_emb,
-            faiss_store=self.faiss_store,
-            bm25_store=self.bm25_store,
-            top_k=self.top_k * 2)
-        
-        unique = {}
-        for r in results:
-            key = r["metadata"]["chunk_id"]
-            unique[key] = r
+            blocks=merged_blocks,
+            block_embeddings=block_embeddings,
+            top_k=self.top_k
+        )
 
-        results = list(unique.values())
-
-        
+        # 7. Реранг через CrossEncoder
         if self.reranker:
-            texts = [r["text"] for r in results]
-            reranked_texts = self.reranker.rerank(query, texts, top_k=self.top_k)
+            top_blocks = self.reranker.rerank(
+                query=query,
+                results=top_blocks,
+                top_k=self.top_k
+            )
 
-            text2res = {r["text"]: r for r in results}
-            results = [text2res[t] for t in reranked_texts]
-        else:
-            results = results[:self.top_k]
-        
-        docs = [r["text"] for r in results]
-        metas = [r["metadata"] for r in results]
+        docs = [b["text"] for b in top_blocks]
+        metas = [b.get("metadata", {}) for b in top_blocks]
 
         return docs, metas
 
-        # res as usual structure: dict with key 'documents' and 'metadatas'
-        # try:
-        #     docs = res['documents'][0] if res['documents'] else []
-        #     metas = res['metadatas'][0] if res['metadatas'] else []
-        # except Exception:
-        #     logger.warning('Unexpected result format from Chroma.query, returning empty.')
-        #     return [], []
-        
-        # if not docs:
-        #     return [], []
-        
-        # return docs, metas
-        
-        # # reranking
-        # top_docs = self.reranker.rerank(query, docs, top_k=self.top_k)
-
-        # final_metas = []
-        # for doc in docs:
-        #     idx = docs.index(doc)
-        #     metas.append(metas[idx])
-
-        # return top_docs, final_metas
 
     def _prepare_context(self, results):
         docs = [r["text"] for r in results]
         metas = [r["metadata"] for r in results]
         return docs, metas
-
     
     def generate(self, question: str) -> Tuple[str, List[dict]]:
         docs, metas = self.retrieve(question)
-        
+
         if not docs:
             return 'По запросу нет релевантных документов', []
-        
-        docs, metas = merge_neighbor_chunks(docs, metas, window_size=5)
 
+        # Можно дополнительно склеивать соседние блоки для LLM
+        docs, metas = merge_neighbor_chunks(docs, metas, window_size=2)
+
+        # Ограничим кол-во для LLM
         docs = docs[:6]
         metas = metas[:6]
 
-        # build context and prompt
         prompt = build_prompt_str(docs, question)
 
-        # Try to call through the client if available
+        # Ollama client / subprocess
         if self.ollama_client_available:
             try:
-                logger.info('Try to call ollama through Python client...')
                 answer = run_ollama_via_clients(self.model, prompt)
-                processed = postprocess_answer(answer)
-                return processed, metas
+                return postprocess_answer(answer), metas
             except Exception as e:
-                logger.warning(f'Ollama client faild: {e}. Lets move on subprocess fallback')
+                logger.warning(f'Ollama client failed: {e}')
 
         if self.ollama_exe:
             try:
                 answer = run_ollama_via_subprocess(self.ollama_exe, self.model, prompt)
-                processed = postprocess_answer(answer)
-                return processed, metas
+                return postprocess_answer(answer), metas
             except Exception as e:
-                logger.error(f'Subprocess call to ollama failed: {e}')
-                return 'Ошибка при вызове Ollama', metas
-        
-        return 'Ollama не настроен (нет клиета и не найден ollama.exe).', metas
-    
-    
+                logger.error(f'Subprocess call failed: {e}')
+
+        return 'Ollama не настроен.', metas
+   
 
 if __name__=='__main__':
     import sys
@@ -378,6 +388,10 @@ if __name__=='__main__':
         q = ' '.join(sys.argv[1:])
     else:
         q = input('Вопрос: ').strip()
+
+    docs, metas = pipeline.retrieve(q)
+    print(docs)
+    print(metas)    
 
     answer , sources = pipeline.generate(q)
     print('\n=== ОТВЕТ ===\n')

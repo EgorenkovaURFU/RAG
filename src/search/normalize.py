@@ -13,7 +13,7 @@ def normalize_results(results: list, source: str):
         else:
             r["norm_score"] = (r["score"] - min_s) / (max_s - min_s)
 
-        r["_source"] = source  # 👈 для логов
+        r["_source"] = source
 
     return results
 

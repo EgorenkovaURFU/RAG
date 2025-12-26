@@ -24,7 +24,21 @@ def parse_docx(file_path: str) -> list:
         logger.error(f'Error during parsing DOCX {file_path}: {ex}')
         return []
     
-    paregraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+    paregraphs = "\n".join(
+        p.text.strip()
+        for p in doc.paragraphs
+        if p.text and p.text.strip())
+
+    # TODO позже реализовать 'section', пока None
+    # for p in doc.paragraphs:
+    #     if p.style.name.startswith("Heading"):
+    #         current_section = p.text
+
+    #     yield {
+    #         "text": p.text,
+    #         "section": current_section
+    #     }
+
 
     if not paregraphs:
         logger.warning(f'DOCX is empty: {file_path}')
@@ -36,7 +50,7 @@ def parse_docx(file_path: str) -> list:
 
             'page': None,
             'sheet': None,
-            'section': heading_or_paragraph_id,
+            'section': None,
 
             'page_type': None}]
 
